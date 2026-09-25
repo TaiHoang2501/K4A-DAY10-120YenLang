@@ -7,9 +7,9 @@
 | Họ và tên       | Trần Anh Quân             |
 | MSSV               | 2A202602598                |
 | Khóa/Lớp         | K4                         |
-| Tên nhóm         | K4-L3-DAY10                |
+| Tên nhóm         | 120YenLang                 |
 | Vai trò chính    | Data Foundation & Recovery Owner |
-| Repository         | https://github.com/TaiHoang2501/K4-L3A-Day10-Data-Pipeline-Data-Observability.git |
+| Repository         | https://github.com/TaiHoang2501/K4A-DAY10-120YenLang.git |
 | Ngày hoàn thành | 2026-09-25                 |
 
 ---
