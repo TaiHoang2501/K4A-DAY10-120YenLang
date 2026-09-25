@@ -8,7 +8,11 @@ from sentence_transformers import SentenceTransformer
 
 @lru_cache(maxsize=4)
 def _load_model(model_name: str) -> SentenceTransformer:
-    return SentenceTransformer(model_name)
+    # Uu tien cache local: neu khong, moi lan load deu goi HEAD len huggingface.co va co the treo khi mang cham.
+    try:
+        return SentenceTransformer(model_name, local_files_only=True)
+    except OSError:
+        return SentenceTransformer(model_name)
 
 
 class MiniLMEmbeddings(Embeddings):

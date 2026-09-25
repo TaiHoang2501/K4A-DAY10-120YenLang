@@ -100,6 +100,21 @@ def _run_ragas(settings: Settings, answers: list[dict[str, Any]]) -> dict[str, A
         return {"error": f"Ragas evaluation failed: {exc}"}
 
 
+def _summarize_by_question_type(answers: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for item in answers:
+        grouped.setdefault(item["question_type"], []).append(item)
+    return {
+        question_type: {
+            "samples": len(items),
+            "retrieval_hit_rate": mean(1.0 if item["retrieval_hit"] else 0.0 for item in items),
+            "mean_token_f1": mean(item["token_f1"] for item in items),
+            "judge_accuracy": mean(1.0 if item["judge"]["correct"] else 0.0 for item in items),
+        }
+        for question_type, items in grouped.items()
+    }
+
+
 def evaluate_pipeline(
     settings: Settings,
     index: LocalEmbeddingIndex,
@@ -136,6 +151,8 @@ def evaluate_pipeline(
         "mean_token_f1": mean(item["token_f1"] for item in answers),
         "judge_accuracy": mean(1.0 if item["judge"]["correct"] else 0.0 for item in answers),
         "mean_judge_score": mean(item["judge"]["score"] for item in answers),
+        "judge_fallback_count": sum(item["judge"]["reasoning"].startswith("Fallback heuristic") for item in answers),
+        "by_question_type": _summarize_by_question_type(answers),
     }
     summary["ragas"] = _run_ragas(settings, answers)
 

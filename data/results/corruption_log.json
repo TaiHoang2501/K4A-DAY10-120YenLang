@@ -1,0 +1,116 @@
+{
+  "generated_at": "2026-09-25T09:11:52.341189+00:00",
+  "seed": 42,
+  "input_rows": 24,
+  "output_rows": 22,
+  "scenarios": 6,
+  "steps": [
+    {
+      "name": "drop_latest_records",
+      "description": "Dropped the 5 most recently published papers (20%).",
+      "affected_rows": 5,
+      "paper_ids": [
+        "10.1145/3637528.3671812",
+        "10.1145/3637528.3671808",
+        "10.1145/3637528.3671804",
+        "10.1145/3637528.3671807",
+        "10.1145/3637528.3671802"
+      ],
+      "published": [
+        "2026-07-22",
+        "2026-07-19",
+        "2026-07-05",
+        "2026-06-25",
+        "2026-06-12"
+      ],
+      "step": 1
+    },
+    {
+      "name": "blank_summary",
+      "description": "Replaced the summary with an empty string.",
+      "affected_rows": 3,
+      "paper_ids": [
+        "10.1145/3637528.3671810",
+        "10.1145/3637528.3671801",
+        "10.1145/3637528.3671811"
+      ],
+      "step": 2
+    },
+    {
+      "name": "inject_text_noise",
+      "description": "Inserted random garbage tokens into the summary / text_for_embedding.",
+      "affected_rows": 3,
+      "paper_ids": [
+        "10.1145/3637528.3671820",
+        "10.1145/3637528.3671816",
+        "10.1145/3637528.3671806"
+      ],
+      "step": 3
+    },
+    {
+      "name": "truncate_title",
+      "description": "Truncated the title to 7 characters.",
+      "affected_rows": 3,
+      "paper_ids": [
+        "10.1145/3637528.3671819",
+        "10.1145/3637528.3671813",
+        "10.1145/3637528.3671803"
+      ],
+      "original_titles": [
+        "Advanced Perspectives on Synthetic Corruption Testing: Stress-Testing Vector Search Robustness",
+        "Advanced Perspectives on Agentic Retrieval-Augmented Generation for Knowledge-Intensive Tasks",
+        "Mitigating Ghost Vectors in Dense Retrieval via Idempotent Indexing"
+      ],
+      "truncated_titles": [
+        "Advance",
+        "Advance",
+        "Mitigat"
+      ],
+      "step": 4
+    },
+    {
+      "name": "stale_date",
+      "description": "Moved the publication date back 5 years.",
+      "affected_rows": 7,
+      "paper_ids": [
+        "10.1145/3637528.3671823",
+        "10.1145/3637528.3671822",
+        "10.1145/3637528.3671818",
+        "10.1145/3637528.3671815",
+        "10.1145/3637528.3671814",
+        "10.1145/3637528.3671809",
+        "10.1145/3637528.3671805"
+      ],
+      "original_published": [
+        "2026-06-11",
+        "2026-06-10",
+        "2026-06-06",
+        "2026-06-03",
+        "2026-06-02",
+        "2026-04-30",
+        "2026-03-28"
+      ],
+      "corrupted_published": [
+        "2021-06-11",
+        "2021-06-10",
+        "2021-06-06",
+        "2021-06-03",
+        "2021-06-02",
+        "2021-04-30",
+        "2021-03-28"
+      ],
+      "step": 5
+    },
+    {
+      "name": "duplicate_rows",
+      "description": "Appended exact copies of existing rows.",
+      "affected_rows": 3,
+      "paper_ids": [
+        "10.1145/3637528.3671821",
+        "10.1145/3637528.3671814",
+        "10.1145/3637528.3671801"
+      ],
+      "step": 6
+    }
+  ]
+}
