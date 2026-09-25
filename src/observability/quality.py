@@ -1,130 +1,211 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any
 
 import great_expectations as gx
+import great_expectations.expectations as gxe
 import pandas as pd
 
 from core.config import Settings
-from core.utils import now_utc, write_json
+from core.utils import write_json
 
-MIN_ROWS = 5
-MAX_ROWS = 5000
-MIN_SUMMARY_CHARS = 30
-REQUIRED_COLUMNS = ["paper_id", "title", "text_for_embedding"]
-MAX_STALE_RATIO = 0.25
-
-# GX 1.x in progress bar/log INFO rat nhieu khi validate, tat bot de console gon.
-logging.getLogger("great_expectations").setLevel(logging.WARNING)
+logger = logging.getLogger(__name__)
 
 
-def _build_expectations() -> list[gx.expectations.Expectation]:
-    expectations: list[gx.expectations.Expectation] = [
-        gx.expectations.ExpectTableRowCountToBeBetween(min_value=MIN_ROWS, max_value=MAX_ROWS),
-    ]
-    expectations += [gx.expectations.ExpectColumnValuesToNotBeNull(column=column) for column in REQUIRED_COLUMNS]
-    expectations += [
-        gx.expectations.ExpectColumnValuesToBeUnique(column="paper_id"),
-        gx.expectations.ExpectColumnValueLengthsToBeBetween(column="summary", min_value=MIN_SUMMARY_CHARS),
-    ]
-    return expectations
+def run_data_quality_checks(
+    df: pd.DataFrame,
+    settings: Settings,
+    report_name: str = "baseline",
+    phase_label: str | None = None,
+) -> dict[str, Any]:
+    """Chạy 4 Data Quality Expectations bắt buộc bằng GX 1.x API.
 
+    Expectations:
+    1. ExpectTableRowCountToBeBetween: 5 – 5000 rows.
+    2. ExpectColumnValuesToNotBeNull: paper_id, title, text_for_embedding.
+    3. ExpectColumnValuesToBeUnique: paper_id.
+    4. ExpectColumnValueLengthsToBeBetween: summary >= 30 ký tự.
 
-def _prepare_frame(df: pd.DataFrame) -> pd.DataFrame:
-    """Chuan hoa chuoi rong thanh null de ExpectColumnValuesToNotBeNull bat duoc ca blank value.
-
-    `summary` thi nguoc lai: null -> "" vi GX bo qua null khi check do dai, blank summary se lot luoi.
+    Returns:
+        dict chứa kết quả validation (success, expectations, statistics).
     """
-    prepared = df.copy()
-    for column in REQUIRED_COLUMNS:
-        if column not in prepared.columns:
-            prepared[column] = None
-        prepared[column] = prepared[column].map(
-            lambda value: None if value is None or (isinstance(value, str) and not value.strip()) else value
-        )
-    summary = prepared["summary"] if "summary" in prepared.columns else pd.Series("", index=prepared.index)
-    prepared["summary"] = summary.fillna("").astype(str).str.strip()
-    return prepared
-
-
-def _age_days(df: pd.DataFrame) -> pd.Series:
-    if "age_days" in df.columns:
-        return pd.to_numeric(df["age_days"], errors="coerce")
-    published = pd.to_datetime(df["published"], errors="coerce", utc=True)
-    return (pd.Timestamp(now_utc()) - published).dt.days
-
-
-def _freshness_summary(df: pd.DataFrame, settings: Settings) -> dict[str, Any]:
-    published = pd.to_datetime(df["published"], errors="coerce", utc=True)
-    age_days = _age_days(df)
-    total_rows = int(len(df))
-    stale_rows = int((age_days > settings.freshness_threshold_days).sum())
-    stale_ratio = stale_rows / total_rows if total_rows else 1.0
-    return {
-        "latest_published": published.max().date().isoformat() if published.notna().any() else None,
-        "oldest_published": published.min().date().isoformat() if published.notna().any() else None,
-        "threshold_days": settings.freshness_threshold_days,
-        "max_stale_ratio": MAX_STALE_RATIO,
-        "stale_rows": stale_rows,
-        "total_rows": total_rows,
-        "stale_ratio": round(stale_ratio, 4),
-        "is_fresh": stale_ratio <= MAX_STALE_RATIO,
-    }
-
-
-def run_data_quality_checks(df: pd.DataFrame, settings: Settings, report_name: str) -> dict[str, Any]:
+    # ── Khởi tạo GX 1.x ephemeral context ──
     context = gx.get_context(mode="ephemeral")
+
+    # ── Đăng ký data source pandas ──
     data_source = context.data_sources.add_pandas(name="papers_source")
     data_asset = data_source.add_dataframe_asset(name="papers_asset")
     batch_def = data_asset.add_batch_definition_whole_dataframe("papers_batch")
-    batch = batch_def.get_batch(batch_parameters={"dataframe": _prepare_frame(df)})
 
-    suite = context.suites.add(gx.ExpectationSuite(name=f"{report_name}_papers_suite"))
-    for expectation in _build_expectations():
-        suite.add_expectation(expectation)
-    validation = batch.validate(suite)
+    # ── Tạo Expectation Suite ──
+    suite = context.suites.add(gx.ExpectationSuite(name="papers_quality_suite"))
 
-    checks = []
-    for result in validation.results:
-        config = result.expectation_config
-        observed = result.result or {}
-        checks.append(
-            {
-                "expectation": config.type,
-                "column": config.kwargs.get("column"),
-                "success": bool(result.success),
-                "observed_value": observed.get("observed_value"),
-                "unexpected_count": observed.get("unexpected_count"),
-                "unexpected_percent": observed.get("unexpected_percent"),
+    # Expectation 1: Số lượng bài báo hợp lệ (5 – 5000)
+    suite.add_expectation(
+        gxe.ExpectTableRowCountToBeBetween(min_value=5, max_value=5000)
+    )
+
+    # Expectation 2: Các cột bắt buộc không được null
+    for col in ["paper_id", "title", "text_for_embedding"]:
+        suite.add_expectation(
+            gxe.ExpectColumnValuesToNotBeNull(column=col)
+        )
+
+    # Expectation 3: paper_id là khóa duy nhất
+    suite.add_expectation(
+        gxe.ExpectColumnValuesToBeUnique(column="paper_id")
+    )
+
+    # Expectation 4: summary có độ dài >= 30 ký tự
+    suite.add_expectation(
+        gxe.ExpectColumnValueLengthsToBeBetween(column="summary", min_value=30)
+    )
+
+    # ── Tạo Validation Definition và chạy ──
+    validation_definition = context.validation_definitions.add(
+        gx.ValidationDefinition(
+            name="papers_validation",
+            data=batch_def,
+            suite=suite,
+        )
+    )
+
+    # Chạy validation với batch parameters
+    result = validation_definition.run(
+        batch_parameters={"dataframe": df}
+    )
+
+    # ── Tổng hợp kết quả ──
+    success = result.success
+
+    expectations_results = []
+    for exp_result in result.results:
+        exp_config = exp_result.expectation_config
+        exp_info = {
+            "expectation_type": exp_config.type,
+            "success": exp_result.success,
+            "kwargs": {k: v for k, v in exp_config.kwargs.items() if k != "batch_id"},
+        }
+        if exp_result.result:
+            exp_info["result"] = {
+                k: v
+                for k, v in exp_result.result.items()
+                if k in ("observed_value", "element_count", "unexpected_count", "unexpected_percent")
             }
-        )
-
-    freshness = _freshness_summary(df, settings)
-    warnings = []
-    if not freshness["is_fresh"]:
-        warnings.append(
-            f"Stale data: {freshness['stale_ratio']:.0%} rows older than {settings.freshness_threshold_days} days "
-            f"(limit {MAX_STALE_RATIO:.0%}) - refresh the source."
-        )
+        expectations_results.append(exp_info)
 
     report = {
         "report_name": report_name,
-        "generated_at": now_utc().isoformat(),
-        "engine": f"great_expectations {gx.__version__}",
-        "success": bool(validation.success),
-        "row_count": int(len(df)),
-        "evaluated_expectations": len(checks),
-        "failed_expectations": sum(not check["success"] for check in checks),
-        "checks": checks,
-        "freshness": freshness,
-        "warnings": warnings,
+        "success": success,
+        "evaluated_expectations": len(expectations_results),
+        "successful_expectations": sum(1 for e in expectations_results if e["success"]),
+        "unsuccessful_expectations": sum(1 for e in expectations_results if not e["success"]),
+        "expectations": expectations_results,
     }
-    write_json(settings.paths.quality_dir / f"{report_name}_quality_report.json", report)
+
+    # ── Ghi report ──
+    if report_name == "baseline":
+        report_path = settings.paths.baseline_quality_report
+    else:
+        report_path = settings.paths.corrupted_quality_report
+    write_json(report_path, report)
+
+    status = "✅ PASSED" if success else "❌ FAILED"
+    logger.info(
+        "Data Quality Gate [%s]: %s (%d/%d expectations passed)",
+        report_name,
+        status,
+        report["successful_expectations"],
+        report["evaluated_expectations"],
+    )
+
     return report
 
 
-def build_freshness_report(df: pd.DataFrame, settings: Settings, report_path) -> dict[str, Any]:
-    payload = {"generated_at": now_utc().isoformat(), **_freshness_summary(df, settings)}
-    write_json(report_path, payload)
-    return payload
+def build_freshness_report(
+    df: pd.DataFrame,
+    settings: Settings,
+    report_path: Path | str | None = None,
+) -> dict[str, Any]:
+    """Kiểm tra độ tươi dữ liệu (Freshness SLA).
+
+    Cảnh báo nếu tỉ lệ bài cũ (age_days > threshold) vượt quá 25%.
+
+    Returns:
+        dict chứa freshness metrics và is_fresh flag.
+    """
+    threshold = settings.freshness_threshold_days  # mặc định 180 ngày
+    total_rows = len(df)
+    target_path = Path(report_path) if report_path else settings.paths.freshness_report
+
+    if total_rows == 0:
+        report = {
+            "latest_published": None,
+            "oldest_published": None,
+            "stale_rows": 0,
+            "total_rows": 0,
+            "stale_ratio": 0.0,
+            "threshold_days": threshold,
+            "max_stale_ratio": 0.25,
+            "is_fresh": True,
+            "sla_status": "PASSED (Empty)",
+            "total_documents": 0,
+            "stale_documents": 0,
+            "fresh_documents": 0,
+            "stale_threshold_days": threshold,
+            "warning": "Không có dữ liệu để kiểm tra freshness.",
+        }
+        write_json(target_path, report)
+        return report
+
+    # ── Tính toán freshness ──
+    latest_published = df["published"].max()
+    oldest_published = df["published"].min()
+
+    # Đếm bài cũ (age_days > threshold)
+    stale_mask = df["age_days"] > threshold
+    stale_rows = int(stale_mask.sum())
+    stale_ratio = stale_rows / total_rows
+
+    # Cảnh báo nếu > 25% bài cũ
+    max_stale_ratio = 0.25
+    is_fresh = stale_ratio <= max_stale_ratio
+
+    report = {
+        "latest_published": str(latest_published),
+        "oldest_published": str(oldest_published),
+        "stale_rows": stale_rows,
+        "total_rows": total_rows,
+        "stale_ratio": round(stale_ratio, 4),
+        "threshold_days": threshold,
+        "max_stale_ratio": max_stale_ratio,
+        "is_fresh": is_fresh,
+        "sla_status": "PASSED (Fresh)" if is_fresh else "WARNING (Stale)",
+        "total_documents": total_rows,
+        "stale_documents": stale_rows,
+        "fresh_documents": total_rows - stale_rows,
+        "stale_threshold_days": threshold,
+    }
+
+    if not is_fresh:
+        report["warning"] = (
+            f"⚠️ CẢNH BÁO: {stale_ratio:.1%} bài báo cũ hơn {threshold} ngày "
+            f"(vượt ngưỡng {max_stale_ratio:.0%}). Cần cập nhật dữ liệu mới!"
+        )
+        logger.warning(report["warning"])
+    else:
+        logger.info(
+            "✅ Freshness OK: %d/%d bài cũ (%.1f%% ≤ %.0f%%)",
+            stale_rows,
+            total_rows,
+            stale_ratio * 100,
+            max_stale_ratio * 100,
+        )
+
+    write_json(target_path, report)
+    logger.info("📊 Freshness report → %s", target_path)
+
+    return report
+
