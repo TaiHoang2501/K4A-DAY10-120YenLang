@@ -40,7 +40,11 @@ def _evaluate_state(
 def _check_quality(settings: Settings, label: str, df: pd.DataFrame) -> tuple[dict[str, Any], dict[str, Any]]:
     quality = run_data_quality_checks(df, settings, label)
     freshness = build_freshness_report(df, settings, settings.paths.quality_dir / f"{label}_freshness_report.json")
-    failed = [f"{check['expectation']}({check['column'] or 'table'})" for check in quality["checks"] if not check["success"]]
+    failed = [
+        f"{check['expectation_type']}({check['kwargs'].get('column') or 'table'})"
+        for check in quality["expectations"]
+        if not check["success"]
+    ]
     print(
         f"[corruption] {label}: quality gate success={quality['success']} failed={failed or '-'} "
         f"is_fresh={freshness['is_fresh']} ({freshness['stale_rows']}/{freshness['total_rows']} stale)"
@@ -120,12 +124,5 @@ def main() -> None:
         repaired_quality,
         corrupted_freshness,
         repaired_freshness,
-        corruption_log=read_json(paths.corruption_log),
-        repair_summary={
-            "run_date": run_date.isoformat(),
-            "source": str(paths.raw_records_json),
-            "rows": len(repaired_df),
-            "matches_baseline": matches_baseline,
-        },
     )
     print(f"[corruption] Report -> {paths.comparison_report}")

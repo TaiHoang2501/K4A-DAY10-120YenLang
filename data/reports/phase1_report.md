@@ -21,12 +21,12 @@
 - **Failed Expectations:** 0
 
 ### Quality Checks Detail
-- [PASS] **check**
-- [PASS] **check** (`paper_id`)
-- [PASS] **check** (`paper_id`)
-- [PASS] **check** (`title`)
-- [PASS] **check** (`text_for_embedding`)
-- [PASS] **check** (`summary`)
+- [PASS] **expect_table_row_count_to_be_between**
+- [PASS] **expect_column_values_to_not_be_null** (`paper_id`)
+- [PASS] **expect_column_values_to_be_unique** (`paper_id`)
+- [PASS] **expect_column_values_to_not_be_null** (`title`)
+- [PASS] **expect_column_values_to_not_be_null** (`text_for_embedding`)
+- [PASS] **expect_column_value_lengths_to_be_between** (`summary`)
 
 ## 4. Freshness SLA Monitoring
 - **SLA Health:** `PASSED (Fresh)`

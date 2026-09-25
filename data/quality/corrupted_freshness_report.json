@@ -1,11 +1,16 @@
 {
-  "generated_at": "2026-09-25T09:11:52.535605+00:00",
   "latest_published": "2026-06-12",
   "oldest_published": "2021-03-28",
-  "threshold_days": 180,
-  "max_stale_ratio": 0.25,
   "stale_rows": 8,
   "total_rows": 22,
   "stale_ratio": 0.3636,
-  "is_fresh": false
+  "threshold_days": 180,
+  "max_stale_ratio": 0.25,
+  "is_fresh": false,
+  "sla_status": "WARNING (Stale)",
+  "total_documents": 22,
+  "stale_documents": 8,
+  "fresh_documents": 14,
+  "stale_threshold_days": 180,
+  "warning": "\u26a0\ufe0f C\u1ea2NH B\u00c1O: 36.4% b\u00e0i b\u00e1o c\u0169 h\u01a1n 180 ng\u00e0y (v\u01b0\u1ee3t ng\u01b0\u1ee1ng 25%). C\u1ea7n c\u1eadp nh\u1eadt d\u1eef li\u1ec7u m\u1edbi!"
 }

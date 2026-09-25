@@ -9,7 +9,7 @@
 | Khóa/Lớp         | K4                         |
 | Tên nhóm         | 120YenLang              |
 | Vai trò chính    | Data Foundation & Recovery Owner |
-| Repository         | https://github.com/TaiHoang2501/K4-L3A-Day10-Data-Pipeline-Data-Observability.git |
+| Repository         | https://github.com/TaiHoang2501/K4A-DAY10-120YenLang |
 | Ngày hoàn thành | 2026-09-25                 |
 
 ---
@@ -42,7 +42,7 @@
 | Thiết lập cơ chế tự phục hồi dữ liệu Idempotent | `src/ingestion/cleaning.py` (`repair_clean_dataset`) | Khôi phục hệ thống về trạng thái ban đầu từ raw snapshot, chạy lặp lại nhiều lần vẫn đạt kết quả nhất quán | Chạy lệnh repair và đối chiếu với bản gốc |
 
 ### Output cụ thể tạo ra và bàn giao:
-- File dữ liệu sạch [data/clean/papers_clean.csv](file:///c:/Users/admin/Documents/Lab/K4-L3A-Day10-Data-Pipeline-Data-Observability/data/clean/papers_clean.csv) và [data/clean/papers_clean.json](file:///c:/Users/admin/Documents/Lab/K4-L3A-Day10-Data-Pipeline-Data-Observability/data/clean/papers_clean.json) gồm đúng 24 bản ghi nghiên cứu khoa học, sạch hoàn toàn các thẻ HTML/JATS XML rác, có cột `age_days` và `text_for_embedding` hoàn chỉnh.
+- File dữ liệu sạch [data/clean/papers_clean.csv](../data/clean/papers_clean.csv) và [data/clean/papers_clean.json](../data/clean/papers_clean.json) gồm đúng 24 bản ghi nghiên cứu khoa học, sạch hoàn toàn các thẻ HTML/JATS XML rác, có cột `age_days` và `text_for_embedding` hoàn chỉnh.
 
 ---
 
@@ -55,9 +55,11 @@
 4. **Yêu cầu Idempotent:** Cần một cơ chế phục hồi mà khi dữ liệu bị tiêm lỗi, pipeline có thể tái tạo lại bản sạch 100% tự động mà không cần can thiệp thủ công.
 
 ### Cách triển khai
-1. **Bóc tách và làm sạch text:** Sử dụng biểu thức chính quy `re.sub(r"<[^>]+>", " ", str(raw_text))` kết hợp `html.unescape()` và `join(split())` để xóa sạch toàn bộ tag XML/HTML và chuẩn hóa khoảng trắng.
-2. **Cơ chế Dual-mode Ingestion:** Trong `fetch_source_records()`, nếu mạng có lỗi hoặc `refresh_source=False`, pipeline tự động chuyển sang đọc snapshot local `data/raw/crossref_response.json`, đảm bảo tính khả thi cao trong môi trường offline/lab.
-3. **Tính toán độ tươi dữ liệu (`age_days`):** Lấy `(run_date.date() - pub_date.date()).days` để định lượng chính xác số ngày kể từ khi bài báo được công bố.
+> Lưu ý: sau khi merge PR #5, `crossref.py` và phần `build_clean_dataframe` trong `cleaning.py` trên `main` là phiên bản từ nhánh RAG, khác bản tôi commit ở `137c799`. `save_clean_dataframe` và `repair_clean_dataset` của tôi đã được khôi phục từ `137c799`. Mô tả dưới đây theo code hiện tại.
+
+1. **Bóc tách và làm sạch text:** `_strip_tags()` dùng regex `<[^>]+>` xóa toàn bộ thẻ XML/HTML (`<jats:p>`, `</jats:p>`, `<b>`…), sau đó `normalize_whitespace()` chuẩn hóa khoảng trắng. DOI được `strip()` và chuyển chữ thường.
+2. **Cơ chế Dual-mode Ingestion:** Trong `fetch_source_records()`, nếu `refresh_source=False` (mặc định) thì đọc thẳng snapshot local `data/raw/crossref_response.json`. Khi `REFRESH_SOURCE=1`: gọi API (timeout 30 giây), gặp 429/503 thì chuyển ngay sang snapshot, lỗi mạng hoặc mã lỗi khác thì thử tối đa 3 lần rồi mới chuyển.
+3. **Tính toán độ tươi dữ liệu (`age_days`):** `(run_date.date() - published_dt.date()).days`, với `published_dt` parse từ chuỗi `YYYY-MM-DD` (`_safe_parse_date`). Ngày không parse được thì `age_days = None`.
 4. **Ghép nối cấu trúc 5 phần `text_for_embedding`:**
    ```text
    Title: <Tiêu đề>
@@ -66,7 +68,7 @@
    Categories: <Chuyên ngành>
    Summary: <Tóm tắt nội dung>
    ```
-5. **Khử trùng lặp và sắp xếp tất định:** Sử dụng `df.drop_duplicates(subset=["paper_id"], keep="first")` và sắp xếp theo `published` giảm dần, `paper_id` tăng dần để đảm bảo tính Idempotent.
+5. **Khử trùng lặp, lọc và sắp xếp:** `df.drop_duplicates(subset=["paper_id"], keep="first")`, loại dòng thiếu cả title lẫn summary, rồi sắp xếp theo `published` giảm dần. Cùng input thì cùng output, nên repair chạy lại nhiều lần vẫn cho một kết quả.
 
 ### Input, output và contract
 
@@ -76,7 +78,7 @@
 | **Output** | `pd.DataFrame` 16 cột: `paper_id`, `title`, `summary`, `authors`, `authors_joined`, `categories`, `categories_joined`, `primary_category`, `published`, `updated`, `age_days`, `summary_chars`, `abs_url`, `pdf_url`, `comment`, `text_for_embedding` |
 | **Module phụ thuộc** | `src/core/config.py` (cung cấp Paths và cấu hình Settings) |
 | **Module sử dụng output** | `src/observability/quality.py` (kiểm tra 4 Expectations GX 1.x & Freshness), `src/retrieval/index.py` (ChromaDB Indexing) |
-| **Điều kiện lỗi cần xử lý** | Mất mạng/API quá tải (chuyển fallback snapshot), DOI rỗng (bỏ qua), bài báo thiếu ngày xuất bản (gán fallback `2026-01-01`), thẻ XML lồng nhau |
+| **Điều kiện lỗi cần xử lý** | Mất mạng/API quá tải (chuyển fallback snapshot), DOI rỗng (bỏ qua), thiếu cả title lẫn abstract (bỏ qua), `date-parts` thiếu tháng/ngày (điền 01), bài báo không có ngày xuất bản (`age_days = None`), thẻ XML lồng nhau |
 
 ### Cách xác minh
 
@@ -154,19 +156,21 @@ python -c "from datetime import datetime, timezone; from core.config import load
 
 | Metric/signal | Baseline | Corrupted | Repaired | Nhận xét của cá nhân |
 | ------------- | -------: | --------: | -------: | --------------------- |
-| `retrieval_hit_rate` | 0.90 – 1.00 | 0.40 – 0.50 | 0.90 – 1.00 | Dữ liệu bị tiêm lỗi khiến bộ tìm kiếm lấy nhầm tài liệu; sau khi repair từ raw, tỷ lệ hit rate phục hồi về mức ban đầu. |
-| `mean_token_f1` | 0.65 – 0.80 | 0.20 – 0.35 | 0.65 – 0.80 | Khi summary bị xóa hoặc nhiễu, LLM không có ngữ cảnh đúng nên F1 sụt giảm nghiêm trọng; sau repair điểm số phục hồi hoàn toàn. |
-| `judge_accuracy` | 0.85 – 0.95 | 0.30 – 0.40 | 0.85 – 0.95 | Giám khảo AI đánh giá câu trả lời chuẩn xác trên dữ liệu sạch, phát hiện sai lệch rõ rệt trên dữ liệu lỗi. |
-| `mean_judge_score` | 4.2 – 4.8 / 5 | 1.8 – 2.3 / 5 | 4.2 – 4.8 / 5 | Điểm chất lượng phản ánh trực tiếp hiện tượng Silent Failure. |
-| Quality checks | PASSED | FAILED | PASSED | GX 1.x bắt được các lỗi null, trùng lặp và summary quá ngắn trên tập Corrupted. |
-| Freshness status | IS_FRESH (True) | STALE (False) | IS_FRESH (True) | Kịch bản lùi ngày xuất bản vi phạm ngưỡng SLA 25%, báo động đỏ thành công. |
+| `retrieval_hit_rate` | 1.00 | 0.00 | 1.00 | Cả 10 câu hỏi về 5 bài mới nhất, đúng 5 bài bị `drop_latest_records` bỏ, nên không câu nào tìm được bài đúng; sau khi repair từ raw, hit rate về 1.00. |
+| `mean_token_f1` | 1.00 | 0.51 | 1.00 | Câu trả lời lấy từ bài khác (có bài bị chèn rác hoặc lùi ngày) nên F1 giảm một nửa; sau repair phục hồi hoàn toàn. |
+| `judge_accuracy` | 1.00 | 0.60 | 1.00 | Cả 3 trạng thái do Gemini chấm (0/10 câu heuristic). Judge vẫn chấm đúng một số câu lấy từ bài sai, nên 0.60 cao hơn thực tế. |
+| `mean_judge_score` | 5.00 | 3.40 | 5.00 | Agent vẫn trả lời trôi chảy trên dữ liệu bẩn (Silent Failure). |
+| Quality checks | PASSED (6/6) | FAILED (4/6) | PASSED (6/6) | GX 1.x bắt được trùng lặp `paper_id` (6 dòng) và summary < 30 ký tự (4 dòng) trên tập Corrupted. |
+| Freshness status | FRESH (1/24 = 4.2%) | STALE (8/22 = 36.4%) | FRESH (1/24 = 4.2%) | Kịch bản lùi ngày xuất bản 7 bài vượt ngưỡng SLA 25%. |
+
+Số liệu từ lần chạy 2026-09-25 10:10–10:11Z (`data/results/*_metrics.json`, `data/quality/*.json`).
 
 ### Kết luận từ số liệu
-1. **Chuỗi 1:** `Data corruption (xóa summary, chèn rác)` $\rightarrow$ `GX 1.x báo FAILED (Summary length < 30)` $\rightarrow$ `Retrieval Hit Rate rơi từ 1.0 xuống 0.4, Token F1 giảm 60%`.
-2. **Chuỗi 2:** `Idempotent Repair (đọc lại từ data/raw/crossref_records.json)` $\rightarrow$ `Quality check trở lại PASSED, Freshness SLA = True` $\rightarrow$ `Hit Rate và Token F1 lấy lại 100% phong độ ban đầu`.
+1. **Chuỗi 1:** `Data corruption (bỏ 5 bài mới nhất, xóa 3 summary, nhân đôi 3 dòng, lùi ngày 7 bài)` $\rightarrow$ `GX 1.x báo FAILED (unique paper_id, summary length < 30), Freshness STALE 36.4%` $\rightarrow$ `Retrieval Hit Rate rơi từ 1.00 xuống 0.00, Token F1 từ 1.00 xuống 0.51`.
+2. **Chuỗi 2:** `Idempotent Repair (đọc lại từ data/raw/crossref_records.json)` $\rightarrow$ `Quality check trở lại PASSED 6/6, Freshness FRESH 4.2%, nội dung trùng khớp baseline (identical to baseline=True)` $\rightarrow$ `Hit Rate và Token F1 lấy lại 100% phong độ ban đầu (1.00 / 1.00)`.
 
-- **Corruption ảnh hưởng rõ nhất:** Lỗi **Blank summary** và **Inject noise** ảnh hưởng nặng nề nhất vì ngữ cảnh (context) đưa vào LLM bị rỗng hoặc méo mó, khiến mô hình bị ảo giác (hallucination) ngay lập tức.
-- **Kết quả bất ngờ:** Dù dữ liệu bị tiêm lỗi nặng, Agent vẫn trả lời câu hỏi rất tự tin và trôi chảy (Silent Failure), chứng minh Data Observability là tấm khiên bắt buộc phải có trước Vector Store.
+- **Corruption ảnh hưởng rõ nhất:** Lỗi **Drop latest records**. Toàn bộ `ground_truth_doc_ids` của 10 câu hỏi nằm trong 5 bài bị bỏ (đối chiếu `corruption_log.json` với `corrupted_answers.json`). Đây là lỗi *mất* dữ liệu, không vá được trên bảng hiện có, nên repair bắt buộc phải đọc lại từ raw snapshot.
+- **Kết quả bất ngờ:** Dù dữ liệu bị tiêm lỗi nặng, Agent vẫn trả lời câu hỏi rất tự tin và trôi chảy (Silent Failure). Ví dụ `eval_005` trả lời ngày xuất bản `2021-06-02`, lấy từ một bài bị lùi ngày 5 năm. Một số câu còn "đúng" dù tìm sai tài liệu (câu hỏi chuyên ngành, vì bài khác có cùng chuyên ngành), chứng minh Data Observability là tấm khiên bắt buộc phải có trước Vector Store.
 
 ---
 

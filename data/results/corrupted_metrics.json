@@ -1,40 +1,40 @@
 {
   "samples": 10,
-  "retrieval_hit_rate": 0.7,
-  "mean_token_f1": 0.8434009971509971,
-  "judge_accuracy": 0.7,
-  "mean_judge_score": 3.9,
+  "retrieval_hit_rate": 0.0,
+  "mean_token_f1": 0.5132897603485839,
+  "judge_accuracy": 0.6,
+  "mean_judge_score": 3.4,
   "judge_fallback_count": 0,
   "by_question_type": {
     "summary": {
       "samples": 2,
       "retrieval_hit_rate": 0.0,
-      "mean_token_f1": 0.6516203703703703,
-      "judge_accuracy": 0.5
+      "mean_token_f1": 0.7037037037037037,
+      "judge_accuracy": 1.0
     },
     "authors": {
       "samples": 2,
-      "retrieval_hit_rate": 0.5,
-      "mean_token_f1": 1.0,
-      "judge_accuracy": 1.0
+      "retrieval_hit_rate": 0.0,
+      "mean_token_f1": 0.5,
+      "judge_accuracy": 0.5
     },
     "date": {
       "samples": 2,
-      "retrieval_hit_rate": 1.0,
-      "mean_token_f1": 1.0,
-      "judge_accuracy": 1.0
+      "retrieval_hit_rate": 0.0,
+      "mean_token_f1": 0.0,
+      "judge_accuracy": 0.0
     },
-    "categories": {
+    "category": {
       "samples": 2,
-      "retrieval_hit_rate": 1.0,
+      "retrieval_hit_rate": 0.0,
       "mean_token_f1": 1.0,
       "judge_accuracy": 1.0
     },
     "multi_hop": {
       "samples": 2,
-      "retrieval_hit_rate": 1.0,
-      "mean_token_f1": 0.5653846153846154,
-      "judge_accuracy": 0.0
+      "retrieval_hit_rate": 0.0,
+      "mean_token_f1": 0.36274509803921573,
+      "judge_accuracy": 0.5
     }
   },
   "ragas": {

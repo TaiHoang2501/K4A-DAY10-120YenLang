@@ -106,10 +106,9 @@ def run_data_quality_checks(
     }
 
     # ── Ghi report ──
-    if report_name == "baseline":
-        report_path = settings.paths.baseline_quality_report
-    else:
-        report_path = settings.paths.corrupted_quality_report
+    # <report_name>_quality_report.json: "baseline"/"corrupted" trùng đúng path trong config,
+    # "repaired" có file riêng thay vì ghi đè corrupted report.
+    report_path = settings.paths.quality_dir / f"{report_name}_quality_report.json"
     write_json(report_path, report)
 
     status = "✅ PASSED" if success else "❌ FAILED"

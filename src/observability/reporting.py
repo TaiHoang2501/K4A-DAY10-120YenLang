@@ -54,7 +54,8 @@ def generate_phase1_report(
     ]
 
     for item in exp_list:
-        exp_name = item.get("expectation", "check")
+        # quality.py ghi tên expectation ở key "expectation_type".
+        exp_name = item.get("expectation_type") or item.get("expectation", "check")
         status_icon = "PASS" if item.get("success") else "FAIL"
         col = item.get("column") or item.get("kwargs", {}).get("column")
         col_str = f" (`{col}`)" if col else ""

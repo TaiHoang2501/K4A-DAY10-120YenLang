@@ -2,13 +2,37 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 import logging
+from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pandas as pd
 
 from core.utils import compact_join, normalize_whitespace
-from ingestion.crossref import PaperRecord
+from ingestion.crossref import PaperRecord, load_raw_records
+
+if TYPE_CHECKING:
+    from core.config import Settings
 
 logger = logging.getLogger(__name__)
+
+CLEAN_COLUMNS = [
+    "paper_id",
+    "title",
+    "summary",
+    "authors",
+    "categories",
+    "primary_category",
+    "published",
+    "updated",
+    "abs_url",
+    "pdf_url",
+    "comment",
+    "authors_joined",
+    "categories_joined",
+    "summary_chars",
+    "age_days",
+    "text_for_embedding",
+]
 
 
 def build_clean_dataframe(records: list[PaperRecord], run_date: datetime | None = None) -> pd.DataFrame:
@@ -126,24 +150,65 @@ def _safe_parse_date(date_str: str) -> datetime | None:
 
 def _empty_dataframe() -> pd.DataFrame:
     """Trả về DataFrame rỗng với đúng schema."""
-    return pd.DataFrame(
-        columns=[
-            "paper_id",
-            "title",
-            "summary",
-            "authors",
-            "categories",
-            "primary_category",
-            "published",
-            "updated",
-            "abs_url",
-            "pdf_url",
-            "comment",
-            "authors_joined",
-            "categories_joined",
-            "summary_chars",
-            "age_days",
-            "text_for_embedding",
-        ]
+    return pd.DataFrame(columns=CLEAN_COLUMNS)
+
+
+def build_text_for_embedding(row: pd.Series) -> str:
+    """Ghép lại text_for_embedding từ một dòng (dùng khi corruption.py sửa title/summary/published)."""
+    return (
+        f"Title: {row['title']}\n"
+        f"Authors: {row['authors_joined']}\n"
+        f"Published: {row['published']}\n"
+        f"Categories: {row['categories_joined']}\n"
+        f"Summary: {row['summary']}"
     )
+
+
+def save_clean_dataframe(
+    df: pd.DataFrame, csv_path: Path, json_path: Path | None = None
+) -> None:
+    """Lưu dataframe sạch ra file CSV và JSON (nếu có chỉ định)."""
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(csv_path, index=False, encoding="utf-8")
+    if json_path:
+        json_path.parent.mkdir(parents=True, exist_ok=True)
+        df.to_json(json_path, orient="records", indent=2, force_ascii=False)
+
+
+def repair_clean_dataset(
+    settings: Settings, run_date: datetime | None = None
+) -> pd.DataFrame:
+    """Tái tạo dữ liệu sạch trực tiếp từ kho raw snapshot (Idempotent Repair).
+
+    Đọc lại từ file snapshot thô `data/raw/crossref_records.json` (hoặc fallback API),
+    chạy qua quy trình làm sạch chuẩn build_clean_dataframe()
+    và lưu đồng nhất vào cả clean artifacts và repaired artifacts.
+    Chạy lại bao nhiêu lần vẫn tạo ra cùng một kết quả chuẩn sạch.
+    """
+    raw_path = settings.paths.raw_records_json
+    if not raw_path.exists():
+        from ingestion.crossref import fetch_source_records
+
+        records = fetch_source_records(settings)
+    else:
+        records = load_raw_records(raw_path)
+
+    effective_date = run_date or datetime.now(UTC)
+    clean_df = build_clean_dataframe(records, run_date=effective_date)
+
+    # Lưu vào kho clean chuẩn
+    save_clean_dataframe(
+        clean_df,
+        csv_path=settings.paths.clean_csv,
+        json_path=settings.paths.clean_json,
+    )
+    # Lưu vào kho repaired artifacts
+    save_clean_dataframe(
+        clean_df,
+        csv_path=settings.paths.repaired_clean_csv,
+        json_path=settings.paths.repaired_clean_json,
+    )
+
+    logger.info("Idempotent repair hoàn tất: %d bản ghi đã được tái tạo sạch.", len(clean_df))
+    return clean_df
 

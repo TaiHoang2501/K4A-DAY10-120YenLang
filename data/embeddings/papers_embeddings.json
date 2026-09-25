@@ -1,7 +1,7 @@
 {
   "backend": "chroma",
   "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
-  "persist_path": "/Users/macos/AI Thu\u031b\u0323c Chie\u0302\u0301n/25-09-2026/K4A-DAY10-120YenLang/data/chroma",
+  "persist_path": "D:\\CODE\\AITHUCCHIEN\\LABS\\K4A-DAY10-120YenLang\\data\\chroma",
   "collection_name": "papers-baseline",
   "documents": [
     {
