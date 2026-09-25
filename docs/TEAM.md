@@ -13,7 +13,7 @@ Nhóm 5 người: vai trò "Observability & Evaluation" được tách làm hai 
 | STT | Họ và tên | MSSV | Email | Vai trò & Phân công công việc | Báo cáo cá nhân |
 |---:|---|---|---|---|---|
 | 1 | Nguyễn Đức Thắng | 2A202602605 | | **Pipeline Lead** (`core/config.py`, `pipelines/phase1.py`, `pipelines/corruption_flow.py`, `script/`, tích hợp & debug end-to-end) | `report/2A202602605_NguyenDucThang.md` |
-| 2 | | | | **Data Foundation Owner** (`ingestion/crossref.py`, `ingestion/cleaning.py`, raw snapshot, repair từ raw) | `report/<MSSV2>_HoTen.md` |
+| 2 | Trần Anh Quân | 2A202602598 | quan.ta.2a@vinuni.edu.vn | **Data Foundation Owner** (`ingestion/crossref.py`, `ingestion/cleaning.py`, raw snapshot, repair từ raw) | `report/individual_report.md` |
 | 3 | | | | **RAG Specialist** (`retrieval/index.py`, `retrieval/embeddings.py`, `retrieval/qa.py`, `retrieval/agent.py`, `retrieval/llm.py`, ChromaDB) | `report/<MSSV3>_HoTen.md` |
 | 4 | | | | **Observability Lead** (`observability/quality.py` GX 1.x, Freshness SLA, `ingestion/corruption.py`) | `report/<MSSV4>_HoTen.md` |
 | 5 | | | | **Evaluation & Reporting Lead** (`evaluation/testset.py`, `evaluation/metrics.py`, `observability/reporting.py`) | `report/<MSSV5>_HoTen.md` |
