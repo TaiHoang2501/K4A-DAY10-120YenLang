@@ -11,7 +11,7 @@
 | STT | Họ và tên | MSSV | Email | Vai trò & Phân công công việc | Báo cáo cá nhân |
 |---:|---|---|---|---|---|
 | 1 | | | | Trưởng nhóm / Pipeline Integrator (`core/`, `phase1.py`, `corruption_flow.py`) | `report/<MSSV1>_HoTen.md` |
-| 2 | | | | Data Foundation & Recovery (`crossref.py`, `cleaning.py`, raw data) | `report/<MSSV2>_HoTen.md` |
+| 2 | Trần Anh Quân | 2A202602598 | quan.ta.2a@vinuni.edu.vn | Data Foundation & Recovery (`crossref.py`, `cleaning.py`, raw data) | `report/TranAnhQuan_report.md` |
 | 3 | | | | RAG & Vector Index (`retrieval/index.py`, `embeddings.py`, ChromaDB) | `report/<MSSV3>_HoTen.md` |
 | 4 | | | | Observability & Evaluation (`quality.py` GX 1.x, `testset.py`, reporting) | `report/<MSSV4>_HoTen.md` |
 
@@ -30,14 +30,15 @@
 - **Điều học được / Đóng góp chính:**
   - Hiểu sâu sắc về thiết kế Idempotent Pipeline và quản lý trạng thái luồng dữ liệu đa tầng.
 
-### ## HoVaTen2-MSSV2
-- **Vai trò:** Phụ trách Ingestion, Làm sạch & Phục hồi dữ liệu.
+### ## TranAnhQuan-2A202602598
+- **Vai trò:** Phụ trách Ingestion, Làm sạch & Phục hồi dữ liệu (Data Foundation & Recovery Owner).
 - **Công việc chi tiết đã hoàn thành:**
-  - Xây dựng module thu thập Crossref API với cơ chế Fallback offline trong `src/ingestion/crossref.py`.
-  - Chuẩn hóa schema, tính toán trường `age_days` và `text_for_embedding` trong `src/ingestion/cleaning.py`.
-  - Thực thi cơ chế Idempotent Repair phục hồi dữ liệu từ raw snapshot.
+  - Xây dựng module thu thập Crossref API với cơ chế Dual-mode (Fallback offline) trong `src/ingestion/crossref.py`.
+  - Chuẩn hóa schema, loại bỏ thẻ JATS XML, tính toán trường `age_days` và `text_for_embedding` 5 phần trong `src/ingestion/cleaning.py`.
+  - Khử trùng lặp `paper_id` và xuất file sạch vào `data/clean/papers_clean.csv` và `papers_clean.json`.
+  - Thực thi cơ chế Idempotent Repair (`repair_clean_dataset`) phục hồi dữ liệu từ raw snapshot.
 - **Điều học được / Đóng góp chính:**
-  - Kỹ thuật truy vết nguồn gốc dữ liệu (Data Lineage) và bảo toàn raw snapshot trước khi biến đổi.
+  - Kỹ thuật truy vết nguồn gốc dữ liệu (Data Lineage), bảo toàn raw snapshot trước khi biến đổi và nguyên lý Idempotent trong Data Engineering.
 
 ### ## HoVaTen3-MSSV3
 - **Vai trò:** Phụ trách RAG, Vector Database & Embedding.

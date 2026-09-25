@@ -1,25 +1,163 @@
 from __future__ import annotations
 
-from datetime import datetime
+import logging
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pandas as pd
 
-from ingestion.crossref import PaperRecord
+from ingestion.crossref import PaperRecord, load_raw_records
+
+if TYPE_CHECKING:
+    from core.config import Settings
+
+logger = logging.getLogger(__name__)
+
+
+def _normalize_spaces(text: str | None) -> str:
+    """Chuẩn hóa khoảng trắng thừa."""
+    if not text:
+        return ""
+    return " ".join(str(text).split()).strip()
 
 
 def build_clean_dataframe(records: list[PaperRecord], run_date: datetime) -> pd.DataFrame:
-    """TODO(student): clean raw records thanh dataframe san sang de embed.
+    """Làm sạch raw records thành DataFrame sẵn sàng để embed và đánh chỉ mục vector.
 
-    Pseudo-code:
-    1. Normalize title, summary, authors, categories.
-    2. Parse published/updated date.
-    3. Tinh age_days.
-    4. Tao cot helper:
-       - authors_joined
-       - categories_joined
-       - summary_chars
-       - text_for_embedding
-    5. Drop duplicates va filter row xau.
-    6. Sort dataframe va return.
+    Quy trình:
+    1. Chuẩn hóa title, summary, authors, categories.
+    2. Parse published/updated date, tính toán age_days = (run_date - published).days.
+    3. Tạo các cột tiện ích:
+       - authors_joined: chuỗi các tác giả ghép bởi dấu phẩy.
+       - categories_joined: chuỗi các chuyên ngành ghép bởi dấu phẩy.
+       - summary_chars: độ dài ký tự của summary.
+       - text_for_embedding: cấu trúc ngữ cảnh 5 phần phục vụ MiniLM embedding.
+    4. Khử trùng lặp theo paper_id và lọc các dòng thiếu khóa chính/tiêu đề.
+    5. Sắp xếp nhất quán (deterministic sort) và reset index.
     """
-    raise NotImplementedError("Student task: implement cleaning pipeline.")
+    if not records:
+        return pd.DataFrame()
+
+    run_d = run_date.date() if isinstance(run_date, datetime) else run_date
+
+    rows = []
+    for r in records:
+        paper_id = _normalize_spaces(r.paper_id)
+        if not paper_id:
+            continue
+
+        title = _normalize_spaces(r.title)
+        if not title:
+            continue
+
+        summary = _normalize_spaces(r.summary)
+
+        clean_authors = [_normalize_spaces(a) for a in r.authors if _normalize_spaces(a)]
+        authors_joined = ", ".join(clean_authors)
+
+        clean_categories = [_normalize_spaces(c) for c in r.categories if _normalize_spaces(c)]
+        categories_joined = ", ".join(clean_categories)
+        primary_category = _normalize_spaces(r.primary_category) or (
+            clean_categories[0] if clean_categories else "General"
+        )
+
+        published_str = str(r.published).strip()
+        try:
+            pub_date = datetime.strptime(published_str[:10], "%Y-%m-%d").date()
+            age_days = (run_d - pub_date).days
+        except Exception:
+            age_days = 0
+
+        updated_str = str(r.updated).strip() if r.updated else published_str
+        summary_chars = len(summary)
+
+        # Cấu trúc chuẩn 5 phần theo Guide.md
+        text_for_embedding = (
+            f"Title: {title}\n"
+            f"Authors: {authors_joined}\n"
+            f"Published: {published_str}\n"
+            f"Categories: {categories_joined}\n"
+            f"Summary: {summary}"
+        )
+
+        rows.append(
+            {
+                "paper_id": paper_id,
+                "title": title,
+                "summary": summary,
+                "authors": clean_authors,
+                "authors_joined": authors_joined,
+                "categories": clean_categories,
+                "categories_joined": categories_joined,
+                "primary_category": primary_category,
+                "published": published_str,
+                "updated": updated_str,
+                "age_days": age_days,
+                "summary_chars": summary_chars,
+                "abs_url": str(r.abs_url).strip(),
+                "pdf_url": str(r.pdf_url).strip(),
+                "comment": str(r.comment).strip(),
+                "text_for_embedding": text_for_embedding,
+            }
+        )
+
+    df = pd.DataFrame(rows)
+
+    # Khử trùng lặp theo paper_id, giữ bản ghi đầu tiên
+    df = df.drop_duplicates(subset=["paper_id"], keep="first")
+
+    # Sắp xếp nhất quán theo published giảm dần và paper_id tăng dần để đảm bảo tính Idempotent
+    df = df.sort_values(by=["published", "paper_id"], ascending=[False, True]).reset_index(drop=True)
+
+    return df
+
+
+def save_clean_dataframe(
+    df: pd.DataFrame, csv_path: Path, json_path: Path | None = None
+) -> None:
+    """Lưu dataframe sạch ra file CSV và JSON (nếu có chỉ định)."""
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(csv_path, index=False, encoding="utf-8")
+    if json_path:
+        json_path.parent.mkdir(parents=True, exist_ok=True)
+        df.to_json(json_path, orient="records", indent=2, force_ascii=False)
+
+
+def repair_clean_dataset(
+    settings: Settings, run_date: datetime | None = None
+) -> pd.DataFrame:
+    """Tái tạo dữ liệu sạch trực tiếp từ kho raw snapshot (Idempotent Repair).
+
+    Đọc lại từ file snapshot thô `data/raw/crossref_records.json` (hoặc fallback API),
+    chạy qua quy trình làm sạch chuẩn build_clean_dataframe()
+    và lưu đồng nhất vào cả clean artifacts và repaired artifacts.
+    Chạy lại bao nhiêu lần vẫn tạo ra cùng một kết quả chuẩn sạch.
+    """
+    raw_path = settings.paths.raw_records_json
+    if not raw_path.exists():
+        from ingestion.crossref import fetch_source_records
+
+        records = fetch_source_records(settings)
+    else:
+        records = load_raw_records(raw_path)
+
+    effective_date = run_date or datetime.now(timezone.utc)
+    clean_df = build_clean_dataframe(records, run_date=effective_date)
+
+    # Lưu vào kho clean chuẩn
+    save_clean_dataframe(
+        clean_df,
+        csv_path=settings.paths.clean_csv,
+        json_path=settings.paths.clean_json,
+    )
+    # Lưu vào kho repaired artifacts
+    save_clean_dataframe(
+        clean_df,
+        csv_path=settings.paths.repaired_clean_csv,
+        json_path=settings.paths.repaired_clean_json,
+    )
+
+    logger.info("Idempotent repair hoàn tất: %d bản ghi đã được tái tạo sạch.", len(clean_df))
+    return clean_df
+
