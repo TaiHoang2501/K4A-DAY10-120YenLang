@@ -154,19 +154,19 @@ python -c "from datetime import datetime, timezone; from core.config import load
 
 | Metric/signal | Baseline | Corrupted | Repaired | Nhận xét của cá nhân |
 | ------------- | -------: | --------: | -------: | --------------------- |
-| `retrieval_hit_rate` | 0.90 – 1.00 | 0.40 – 0.50 | 0.90 – 1.00 | Dữ liệu bị tiêm lỗi khiến bộ tìm kiếm lấy nhầm tài liệu; sau khi repair từ raw, tỷ lệ hit rate phục hồi về mức ban đầu. |
-| `mean_token_f1` | 0.65 – 0.80 | 0.20 – 0.35 | 0.65 – 0.80 | Khi summary bị xóa hoặc nhiễu, LLM không có ngữ cảnh đúng nên F1 sụt giảm nghiêm trọng; sau repair điểm số phục hồi hoàn toàn. |
-| `judge_accuracy` | 0.85 – 0.95 | 0.30 – 0.40 | 0.85 – 0.95 | Giám khảo AI đánh giá câu trả lời chuẩn xác trên dữ liệu sạch, phát hiện sai lệch rõ rệt trên dữ liệu lỗi. |
-| `mean_judge_score` | 4.2 – 4.8 / 5 | 1.8 – 2.3 / 5 | 4.2 – 4.8 / 5 | Điểm chất lượng phản ánh trực tiếp hiện tượng Silent Failure. |
-| Quality checks | PASSED | FAILED | PASSED | GX 1.x bắt được các lỗi null, trùng lặp và summary quá ngắn trên tập Corrupted. |
-| Freshness status | IS_FRESH (True) | STALE (False) | IS_FRESH (True) | Kịch bản lùi ngày xuất bản vi phạm ngưỡng SLA 25%, báo động đỏ thành công. |
+| `retrieval_hit_rate` | 1.00 | 0.70 | 1.00 | Dữ liệu bị tiêm lỗi khiến hit rate giảm 30% (nhóm câu hỏi summary rơi về 0.00); sau khi repair từ raw snapshot, hit rate phục hồi 100% về 1.00. |
+| `mean_token_f1` | 0.95 | 0.84 | 0.95 | Khi summary bị xóa rỗng hoặc chèn rác, LLM bị thiếu ngữ cảnh đúng nên Token F1 giảm từ 0.95 xuống 0.84; sau khi repair, điểm F1 lấy lại mức 0.95. |
+| `judge_accuracy` | 1.00 | 0.70 | 0.90 | Giám khảo AI đánh giá độ chính xác đạt tuyệt đối trên dữ liệu sạch, phát hiện suy giảm rõ rệt trên dữ liệu lỗi (giảm 30%), và phục hồi mạnh sau repair. |
+| `mean_judge_score` | 4.60 / 5 | 3.90 / 5 | 4.60 / 5 | Điểm đánh giá định tính của giám khảo AI sụt giảm 0.7 điểm khi dữ liệu bẩn và phục hồi trọn vẹn 4.60/5 sau repair. |
+| Quality checks (GX 1.x) | PASSED (6/6) | FAILED (4/6) | PASSED (6/6) | GX 1.x bắt được chính xác 6 vi phạm trùng lặp `paper_id` và 4 vi phạm độ dài `summary < 30` ký tự trên tập Corrupted. |
+| Freshness status | FRESH (4.2% stale) | STALE (36.4% stale) | FRESH (4.2% stale) | Kịch bản lùi ngày xuất bản 5 năm khiến tỷ lệ bài quá hạn tăng lên 36.4% (vượt ngưỡng SLA 25%), kích hoạt cảnh báo STALE thành công. |
 
 ### Kết luận từ số liệu
-1. **Chuỗi 1:** `Data corruption (xóa summary, chèn rác)` $\rightarrow$ `GX 1.x báo FAILED (Summary length < 30)` $\rightarrow$ `Retrieval Hit Rate rơi từ 1.0 xuống 0.4, Token F1 giảm 60%`.
-2. **Chuỗi 2:** `Idempotent Repair (đọc lại từ data/raw/crossref_records.json)` $\rightarrow$ `Quality check trở lại PASSED, Freshness SLA = True` $\rightarrow$ `Hit Rate và Token F1 lấy lại 100% phong độ ban đầu`.
+1. **Chuỗi 1:** `Data corruption (tiêm 6 lỗi: drop 5 bài mới, xóa 3 summary, chèn rác, truncate title, lùi 7 ngày date, duplicate 3 dòng)` $\rightarrow$ `Quality Gate báo FAILED (trùng lặp paper_id và summary < 30 ký tự) & Freshness SLA = STALE (36.4% > 25%)` $\rightarrow$ `Retrieval Hit Rate sụt giảm từ 1.00 xuống 0.70 (riêng câu hỏi summary rơi về 0.00), Mean Token F1 giảm từ 0.95 xuống 0.84, Judge score giảm từ 4.60 xuống 3.90`.
+2. **Chuỗi 2:** `Idempotent Repair (đọc lại từ data/raw/crossref_records.json, tái tạo clean artifacts)` $\rightarrow$ `Quality check trở lại PASSED 100%, Freshness SLA = FRESH (4.2% <= 25%)` $\rightarrow$ `Retrieval Hit Rate phục hồi 100% về 1.00, Token F1 phục hồi 100% về 0.95, Mean judge score lấy lại 4.60/5`.
 
-- **Corruption ảnh hưởng rõ nhất:** Lỗi **Blank summary** và **Inject noise** ảnh hưởng nặng nề nhất vì ngữ cảnh (context) đưa vào LLM bị rỗng hoặc méo mó, khiến mô hình bị ảo giác (hallucination) ngay lập tức.
-- **Kết quả bất ngờ:** Dù dữ liệu bị tiêm lỗi nặng, Agent vẫn trả lời câu hỏi rất tự tin và trôi chảy (Silent Failure), chứng minh Data Observability là tấm khiên bắt buộc phải có trước Vector Store.
+- **Corruption ảnh hưởng rõ nhất:** Lỗi **Blank summary** (xóa tóm tắt) và **Drop latest records** (mất 20% bài mới) ảnh hưởng nặng nề nhất: Retrieval Hit Rate đối với câu hỏi dạng `summary` rơi từ `1.00` thẳng về `0.00` do văn bản tóm tắt không còn nội dung để tạo embedding match với query.
+- **Kết quả bất ngờ:** Dù dữ liệu bị tiêm lỗi nặng, mô hình LLM vẫn tự tin sinh ra câu trả lời nghe rất trôi chảy nhưng thực chất dựa trên thông tin bị thiếu hụt hoặc sai lệch (**Silent Failure**). Điều này chứng minh trạm kiểm dịch dữ liệu (Data Observability Gate) là "tấm khiên" bắt buộc phải có để ngăn chặn dữ liệu độc hại trước khi lọt vào Vector Store.
 
 ---
 
