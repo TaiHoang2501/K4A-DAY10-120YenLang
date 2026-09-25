@@ -2,7 +2,7 @@
 
 - **Tên Nhóm:** `120YenLang`
 - **Mã Nhóm / Lớp:** `K4-L3-DAY10`
-- **Tên Repository Nộp Bài:** `K4-L3-DAY10-120YenLang-DataPipeline`
+- **Tên Repository Nộp Bài:** `K4A-DAY10-120YenLang`
 
 ---
 
@@ -34,14 +34,15 @@ Nhóm 5 người: vai trò "Observability & Evaluation" được tách làm hai 
 - **Điều học được / Đóng góp chính:**
   - Idempotent repair từ raw snapshot, và việc mọi lời gọi mạng trong pipeline đều cần timeout.
 
-### ## HoVaTen2-MSSV2
-- **Vai trò:** Phụ trách Ingestion, Làm sạch & Phục hồi dữ liệu.
+### ## TranAnhQuan-2A202602598
+- **Vai trò:** Phụ trách Ingestion, Làm sạch & Phục hồi dữ liệu (Data Foundation & Recovery Owner).
 - **Công việc chi tiết đã hoàn thành:**
-  - Xây dựng module thu thập Crossref API với cơ chế Fallback offline trong `src/ingestion/crossref.py`.
-  - Chuẩn hóa schema, tính toán trường `age_days` và `text_for_embedding` trong `src/ingestion/cleaning.py`.
-  - Thực thi cơ chế Idempotent Repair phục hồi dữ liệu từ raw snapshot.
+  - Xây dựng module thu thập Crossref API với cơ chế Dual-mode (Fallback offline) trong `src/ingestion/crossref.py`.
+  - Chuẩn hóa schema, loại bỏ thẻ JATS XML, tính toán trường `age_days` và `text_for_embedding` 5 phần trong `src/ingestion/cleaning.py`.
+  - Khử trùng lặp `paper_id` và xuất file sạch vào `data/clean/papers_clean.csv` và `papers_clean.json`.
+  - Thực thi cơ chế Idempotent Repair (`repair_clean_dataset`) phục hồi dữ liệu từ raw snapshot.
 - **Điều học được / Đóng góp chính:**
-  - Kỹ thuật truy vết nguồn gốc dữ liệu (Data Lineage) và bảo toàn raw snapshot trước khi biến đổi.
+  - Kỹ thuật truy vết nguồn gốc dữ liệu (Data Lineage), bảo toàn raw snapshot trước khi biến đổi và nguyên lý Idempotent trong Data Engineering.
 
 ### ## HoVaTen3-MSSV3
 - **Vai trò:** Phụ trách RAG, Vector Database & Embedding.
