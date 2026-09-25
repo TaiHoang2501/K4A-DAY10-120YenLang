@@ -1,0 +1,15 @@
+{
+  "latest_published": "2026-07-22",
+  "oldest_published": "2026-03-28",
+  "stale_rows": 1,
+  "total_rows": 24,
+  "stale_ratio": 0.0417,
+  "threshold_days": 180,
+  "max_stale_ratio": 0.25,
+  "is_fresh": true,
+  "sla_status": "PASSED (Fresh)",
+  "total_documents": 24,
+  "stale_documents": 1,
+  "fresh_documents": 23,
+  "stale_threshold_days": 180
+}

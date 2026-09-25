@@ -1,0 +1,22 @@
+[
+  {
+    "question": "What is the summary of the paper 'Continuous Benchmark Evaluation for Enterprise Retrieval Pipelines'?",
+    "answer": "Static benchmarks fail to capture domain drift in enterprise knowledge bases.",
+    "retrieved_titles": [
+      "Continuous Benchmark Evaluation for Enterprise Retrieval Pipelines",
+      "Advanced Perspectives on Continuous Benchmark Evaluation for Enterprise Retrieval Pipelines",
+      "Advanced Perspectives on Evaluating Retrieval Precision with Token F1 and LLM Judges",
+      "Evaluating Retrieval Precision with Token F1 and LLM Judges"
+    ]
+  },
+  {
+    "question": "Who authored the paper 'Freshness SLAs for Real-Time LLM Knowledge Augmentation'?",
+    "answer": "Bao Do, Linh Ngo",
+    "retrieved_titles": [
+      "Freshness SLAs for Real-Time LLM Knowledge Augmentation",
+      "Advanced Perspectives on Freshness SLAs for Real-Time LLM Knowledge Augmentation",
+      "Advanced Perspectives on Agentic Retrieval-Augmented Generation for Knowledge-Intensive Tasks",
+      "Agentic Retrieval-Augmented Generation for Knowledge-Intensive Tasks"
+    ]
+  }
+]

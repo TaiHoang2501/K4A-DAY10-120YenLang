@@ -41,6 +41,10 @@ class Paths:
     repaired_answers: Path
     comparison_report: Path
 
+    @property
+    def test_set_json(self) -> Path:
+        return self.eval_testset
+
 
 @dataclass(frozen=True)
 class Settings:
@@ -67,6 +71,10 @@ class Settings:
     refresh_source: bool
     refresh_test_set: bool
     paths: Paths
+
+    @property
+    def run_date(self) -> datetime:
+        return datetime.now(UTC)
 
 
 def load_settings(project_dir: Path | None = None) -> Settings:
